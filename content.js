@@ -2,19 +2,20 @@ let airportDatabase = {};
 const shortCodeIndex = new Map();
 const airportRegex = /\b(K[A-Z0-9]{3}|[A-Z][0-9]{2}|[A-Z]{3})\b/g;
 
-// Tracks whether the page has already been highlighted to prevent double-processing
 let highlightsApplied = false;
+let globalTooltip = null; // Holds our single, root-level tooltip
+let tooltipHideTimeout = null;
 
 async function init() {
   try {
-    // 1. Fetch data and build indexes globally immediately on load
-    // (This ensures data is ready in memory whenever the user flips the toggle)
     const jsonUrl = chrome.runtime.getURL('airports.json');
     const response = await fetch(jsonUrl);
     airportDatabase = await response.json();
     buildShortCodeIndex();
 
-    // 2. Check storage to see if we should highlight right away
+    // Create the global tooltip container once data is ready
+    createGlobalTooltip();
+
     chrome.storage.local.get({ extensionEnabled: true }, (result) => {
       if (result.extensionEnabled) {
         applyHighlights();
@@ -41,28 +42,45 @@ function getAirportData(code) {
   return null;
 }
 
-// Applies highlights to the page if they aren't already there
+// Create a single tooltip at the bottom of the body, bypassing all parent container overflows
+function createGlobalTooltip() {
+  if (document.getElementById('sv-global-airport-tooltip')) return;
+
+  globalTooltip = document.createElement('div');
+  globalTooltip.id = 'sv-global-airport-tooltip';
+  globalTooltip.className = 'sv-airport-tooltip';
+  document.body.appendChild(globalTooltip);
+
+  // Clear the hide countdown if the cursor moves inside the tooltip box
+  globalTooltip.addEventListener('mouseenter', () => {
+    clearTimeout(tooltipHideTimeout);
+  });
+
+  // Start the hide countdown if the cursor exits the tooltip box
+  globalTooltip.addEventListener('mouseleave', () => {
+    tooltipHideTimeout = setTimeout(() => {
+      globalTooltip.classList.remove('sv-visible');
+    }, 150); // 150ms buffer zone
+  });
+}
+
 function applyHighlights() {
   if (highlightsApplied) return;
   searchAndWrapAirports(document.body);
+  attachHoverListeners(); // Attach mouse events to highlights
   highlightsApplied = true;
 }
 
-// Strips highlights away instantly by unwrapping the original text content
 function removeHighlights() {
   if (!highlightsApplied) return;
 
-  // Find all elements we created with our custom wrapper class
-  const wrappers = document.querySelectorAll('.sv-airport-wrapper');
-
-  wrappers.forEach(wrapper => {
-    // Find the original plain text string (inside our highlight span)
-    const originalText = wrapper.querySelector('.sv-airport-highlight').textContent;
-    // Replace the entire nested structure back with simple text node
-    const textNode = document.createTextNode(originalText);
-    wrapper.parentNode.replaceChild(textNode, wrapper);
+  const highlights = document.querySelectorAll('.sv-airport-highlight');
+  highlights.forEach(highlight => {
+    const textNode = document.createTextNode(highlight.textContent);
+    highlight.parentNode.replaceChild(textNode, highlight);
   });
 
+  if (globalTooltip) globalTooltip.classList.remove('sv-visible');
   highlightsApplied = false;
 }
 
@@ -81,36 +99,12 @@ function searchAndWrapAirports(node) {
         const airportData = getAirportData(match);
         if (!airportData) return match;
 
-        const targetIdent = airportData.ident || match;
-        const name = airportData.name || "Unknown Airport";
-        const location = `${airportData.municipality || ''}, ${airportData.iso_region || ''}`.replace(/^,\s*/, '');
-        const elevation = airportData.elevation_ft ? `${airportData.elevation_ft} ft` : null;
-        const skyvectorUrl = `https://skyvector.com/airport/${targetIdent}`;
-
-        const wikiLink = airportData.wikipedia_link ? `<a class="sv-secondary-link" href="${airportData.wikipedia_link}" target="_blank" rel="noopener noreferrer">Wikipedia ↗</a>` : '';
-        const homeLink = airportData.home_link ? `<a class="sv-secondary-link" href="${airportData.home_link}" target="_blank" rel="noopener noreferrer">Website ↗</a>` : '';
-
-        return `<span class="sv-airport-wrapper">
-                  <span class="sv-airport-highlight">${match}</span>
-                  <span class="sv-airport-tooltip">
-                    <div class="sv-tooltip-header">
-                      <strong>${targetIdent}</strong>
-                      <span class="sv-source-tag">${airportData.type.replace('_', ' ')}</span>
-                    </div>
-                    <div class="sv-tooltip-body">
-                      <div class="sv-airport-name">${name}</div>
-                      ${location ? `<div class="sv-airport-loc">📍 ${location}</div>` : ''}
-                      ${elevation ? `<div class="sv-airport-elev">⛰️ Elev: ${elevation}</div>` : ''}
-                    </div>
-                    <a class="sv-primary-link" href="${skyvectorUrl}" target="_blank" rel="noopener noreferrer">View on SkyVector ↗</a>
-                    ${wikiLink || homeLink ? `<div class="sv-link-footer">${wikiLink} ${homeLink}</div>` : ''}
-                  </span>
-                </span>`;
+        // Clean inline wrapper layout (No nested HTML data anymore)
+        return `<span class="sv-airport-highlight" data-airport-code="${match}">${match}</span>`;
       });
       node.parentNode.replaceChild(span, node);
     }
   } else {
-    // We use an array snapshot of child nodes because mutating DOM during live iteration can skip nodes
     const children = Array.from(node.childNodes);
     for (let i = 0; i < children.length; i++) {
       searchAndWrapAirports(children[i]);
@@ -118,9 +112,65 @@ function searchAndWrapAirports(node) {
   }
 }
 
-// -------------------------------------------------------------
-// NEW: Listen for messages sent from popup.js
-// -------------------------------------------------------------
+// Track mouse positioning dynamically
+function attachHoverListeners() {
+  document.body.addEventListener('mouseenter', (e) => {
+    if (!e.target.classList || !e.target.classList.contains('sv-airport-highlight')) return;
+
+    // Clear any active hide count down because we just hit a highlight element
+    clearTimeout(tooltipHideTimeout);
+
+    const highlightEl = e.target;
+    const code = highlightEl.getAttribute('data-airport-code');
+    const airportData = getAirportData(code);
+
+    if (!airportData || !globalTooltip) return;
+
+    const targetIdent = airportData.ident || code.toUpperCase();
+    const name = airportData.name || "Unknown Airport";
+    const location = `${airportData.municipality || ''}, ${airportData.iso_region || ''}`.replace(/^,\s*/, '');
+    const elevation = airportData.elevation_ft ? `${airportData.elevation_ft} ft` : null;
+    const skyvectorUrl = `https://skyvector.com/airport/${targetIdent}`;
+
+    const wikiLink = airportData.wikipedia_link ? `<a class="sv-secondary-link" href="${airportData.wikipedia_link}" target="_blank" rel="noopener noreferrer">Wikipedia ↗</a>` : '';
+    const homeLink = airportData.home_link ? `<a class="sv-secondary-link" href="${airportData.home_link}" target="_blank" rel="noopener noreferrer">Website ↗</a>` : '';
+
+    globalTooltip.innerHTML = `
+      <div class="sv-tooltip-header">
+        <strong>${targetIdent}</strong>
+        <span class="sv-source-tag">${airportData.type.replace('_', ' ')}</span>
+      </div>
+      <div class="sv-tooltip-body">
+        <div class="sv-airport-name">${name}</div>
+        ${location ? `<div class="sv-airport-loc">📍 ${location}</div>` : ''}
+        ${elevation ? `<div class="sv-airport-elev">⛰️ Elev: ${elevation}</div>` : ''}
+      </div>
+      <a class="sv-primary-link" href="${skyvectorUrl}" target="_blank" rel="noopener noreferrer">View on SkyVector ↗</a>
+      ${wikiLink || homeLink ? `<div class="sv-link-footer">${wikiLink} ${homeLink}</div>` : ''}
+    `;
+
+    const rect = highlightEl.getBoundingClientRect();
+
+    // Increased offset slightly to 10px to prevent the tooltip from rendering directly under the mouse tip
+    let targetTop = rect.bottom + window.scrollY + 10;
+    let targetLeft = rect.left + window.scrollX + (rect.width / 2);
+
+    globalTooltip.style.top = `${targetTop}px`;
+    globalTooltip.style.left = `${targetLeft}px`;
+
+    globalTooltip.classList.add('sv-visible');
+  }, true);
+
+  document.body.addEventListener('mouseleave', (e) => {
+    if (!e.target.classList || !e.target.classList.contains('sv-airport-highlight')) return;
+
+    // Instead of hiding immediately, trigger a coordinated countdown
+    tooltipHideTimeout = setTimeout(() => {
+      globalTooltip.classList.remove('sv-visible');
+    }, 150);
+  }, true);
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "toggleHighlights") {
     if (request.enabled) {
@@ -131,5 +181,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-// Run initialization
 init();

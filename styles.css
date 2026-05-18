@@ -1,39 +1,48 @@
-.sv-airport-wrapper {
-  position: relative;
-  display: inline-block;
-  cursor: pointer;
-}
-
+/* Clean Highlight formatting */
 .sv-airport-highlight {
-  background-color: rgba(0, 150, 136, 0.0);
-  border-bottom: none;
   font-weight: 500;
   padding: 0 2px;
   border-radius: 2px;
+  cursor: pointer;
+  display: inline;
 }
 
+/* Tooltip Main Core (Changes to absolute page placement) */
 .sv-airport-tooltip {
+  display: block;
+  position: absolute; /* Controlled strictly via JS coordinates */
   visibility: hidden;
+  opacity: 0;
+  pointer-events: none; /* Prevents cursor stuttering issues */
+
   width: 250px;
   background-color: #1e252b;
   color: #f5f6f7;
   text-align: left;
   border-radius: 8px;
   padding: 12px;
-  position: absolute;
-  z-index: 999999;
-  top: 130%;
-  left: 50%;
-  transform: translateX(-50%);
-  opacity: 0;
-  transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out;
-  box-shadow: 0px 5px 15px rgba(0,0,0,0.4);
+
+  /* Forces rendering stack priority above EVERYTHING on the host webpage */
+  z-index: 2147483647 !important;
+
+  transform: translate(-50%, 0px); /* Keeps arrow dead-center under the word */
+  transition: opacity 0.12s ease-in-out, transform 0.12s ease-in-out;
+  box-shadow: 0px 8px 24px rgba(0,0,0,0.5);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 13px;
   line-height: 1.4;
   border: 1px solid #343a40;
 }
 
+/* Visibility state handled by JS hooks */
+.sv-airport-tooltip.sv-visible {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto; /* Reactivates click capabilities for links */
+  transform: translate(-50%, 4px); /* Sleek micro drop-down glide */
+}
+
+/* Upward pointing triangle layout */
 .sv-airport-tooltip::after {
   content: "";
   position: absolute;
@@ -42,9 +51,10 @@
   margin-left: -6px;
   border-width: 6px;
   border-style: solid;
-  border-color: #1e252b transparent transparent transparent;
+  border-color: transparent transparent #1e252b transparent;
 }
 
+/* Inner Text styling elements remain identical */
 .sv-tooltip-header {
   display: flex;
   justify-content: space-between;
@@ -53,12 +63,10 @@
   padding-bottom: 6px;
   margin-bottom: 6px;
 }
-
 .sv-tooltip-header strong {
   font-size: 15px;
   color: #00cbc6;
 }
-
 .sv-source-tag {
   font-size: 9px;
   background-color: #2c3e50;
@@ -66,21 +74,17 @@
   padding: 2px 6px;
   border-radius: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
-
 .sv-airport-name {
   font-weight: 600;
   color: #ffffff;
 }
-
-.sv-airport-loc {
+.sv-airport-loc, .sv-airport-elev {
   font-size: 11px;
   color: #a4b0be;
   margin-top: 2px;
 }
-
-.sv-airport-tooltip a {
+.sv-airport-tooltip .sv-primary-link {
   display: block;
   text-align: center;
   margin-top: 10px;
@@ -91,15 +95,22 @@
   padding: 6px;
   border-radius: 4px;
   font-size: 12px;
-  transition: background 0.2s;
 }
-
-.sv-airport-tooltip a:hover {
+.sv-airport-tooltip .sv-primary-link:hover {
   background-color: #00bfa5;
 }
-
-.sv-airport-wrapper:hover .sv-airport-tooltip {
-  visibility: visible;
-  opacity: 1;
-  transform: translateX(-50%) translateY(2px);
+.sv-link-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #343a40;
+}
+.sv-airport-tooltip .sv-secondary-link {
+  font-size: 11px;
+  color: #3498db !important;
+  text-decoration: none !important;
+}
+.sv-airport-tooltip .sv-secondary-link:hover {
+  text-decoration: underline !important;
 }
