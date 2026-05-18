@@ -1,0 +1,36 @@
+{
+    "manifest_version": 3,
+    "name": "Airport Tooltips",
+    "version": "1.2",
+    "description": "Identifies global airport codes using OurAirports data with a toggle menu.",
+    "permissions": [
+        "storage"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "css": [
+                "styles.css"
+            ],
+            "run_at": "document_end"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "airports.json"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ]
+}

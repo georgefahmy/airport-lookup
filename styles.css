@@ -1,0 +1,105 @@
+.sv-airport-wrapper {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.sv-airport-highlight {
+  background-color: rgba(0, 150, 136, 0.0);
+  border-bottom: none;
+  font-weight: 500;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.sv-airport-tooltip {
+  visibility: hidden;
+  width: 250px;
+  background-color: #1e252b;
+  color: #f5f6f7;
+  text-align: left;
+  border-radius: 8px;
+  padding: 12px;
+  position: absolute;
+  z-index: 999999;
+  top: 130%;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out;
+  box-shadow: 0px 5px 15px rgba(0,0,0,0.4);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  border: 1px solid #343a40;
+}
+
+.sv-airport-tooltip::after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  margin-left: -6px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: #1e252b transparent transparent transparent;
+}
+
+.sv-tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #343a40;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+}
+
+.sv-tooltip-header strong {
+  font-size: 15px;
+  color: #00cbc6;
+}
+
+.sv-source-tag {
+  font-size: 9px;
+  background-color: #2c3e50;
+  color: #95a5a6;
+  padding: 2px 6px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sv-airport-name {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.sv-airport-loc {
+  font-size: 11px;
+  color: #a4b0be;
+  margin-top: 2px;
+}
+
+.sv-airport-tooltip a {
+  display: block;
+  text-align: center;
+  margin-top: 10px;
+  background-color: #009688;
+  color: #ffffff !important;
+  text-decoration: none !important;
+  font-weight: bold;
+  padding: 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.sv-airport-tooltip a:hover {
+  background-color: #00bfa5;
+}
+
+.sv-airport-wrapper:hover .sv-airport-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(2px);
+}

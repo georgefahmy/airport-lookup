@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 180px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 10px;
+      margin: 0;
+      background-color: #1e252b;
+      color: #ffffff;
+    }
+    .menu-header {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 12px;
+      text-align: center;
+      color: #00cbc6;
+    }
+    .toggle-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+    /* Simple CSS Toggle Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #747d8c;
+      transition: .2s;
+      border-radius: 20px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #009688;
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+  </style>
+</head>
+<body>
+  <div class="menu-header">SkyVector Lookup</div>
+  <div class="toggle-container">
+    <span>Enable Highlights</span>
+    <label class="switch">
+      <input type="checkbox" id="toggle-extension" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
