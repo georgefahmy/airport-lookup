@@ -12,26 +12,34 @@ let allowedContinents = ['NA', 'EU', 'AS', 'SA', 'AF', 'OC', 'AN'];
 // Initialize the extension using native C++ JSON parsing
 async function init() {
   try {
-    const jsonUrl = chrome.runtime.getURL('airports.json');
-    const response = await fetch(jsonUrl);
-    airportDatabase = await response.json();
-
-    // Build our reverse index mapping for verified gps_code and local_code matches
-    buildShortCodeIndex();
-    createGlobalTooltip();
-
-    // Load preferences from local storage simultaneously
+    // Check if the user has triggered an auto-update patch override cache
     chrome.storage.local.get({
       extensionEnabled: true,
-      allowedContinents: ['NA', 'EU', 'AS', 'SA', 'AF', 'OC', 'AN']
-    }, (result) => {
+      allowedContinents: ['NA', 'EU', 'AS', 'SA', 'AF', 'OC', 'AN'],
+      downloadedAirportDatabase: null // Read dynamic data updates
+    }, async (result) => {
+
       allowedContinents = result.allowedContinents;
+
+      if (result.downloadedAirportDatabase) {
+        // Load dynamically downloaded database
+        airportDatabase = result.downloadedAirportDatabase;
+      } else {
+        // Fall back to original embedded json file asset
+        const jsonUrl = chrome.runtime.getURL('airports.json');
+        const response = await fetch(jsonUrl);
+        airportDatabase = await response.json();
+      }
+
+      buildShortCodeIndex();
+      createGlobalTooltip();
+
       if (result.extensionEnabled) {
         applyHighlights();
       }
     });
   } catch (error) {
-    console.error("Failed to initialize Airport Lookup extension from JSON:", error);
+    console.error("Initialization error:", error);
   }
 }
 
@@ -203,6 +211,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       removeHighlights();
       applyHighlights();
     }
+  }
+  if (request.action === "reloadDatabaseFromStorage") {
+    // Force browser content layout to recalculate indices immediately with the new data
+    init();
   }
 });
 
