@@ -87,43 +87,76 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Fast, streamlined CSV line parser logic helper
   function parseCSVToJSON(csvText) {
-    const lines = csvText.split(/\r?\n/);
     const databaseOutput = {};
+
+    // Cleanly split lines, handling carriage returns safely
+    const lines = csvText.split(/\r?\n/);
     if (lines.length === 0) return databaseOutput;
 
-    // Track header indices dynamically
-    const headers = lines[0].split(',');
-    const colIdent = headers.indexOf('"ident"');
-    const colType = headers.indexOf('"type"');
-    const colName = headers.indexOf('"name"');
-    const colElev = headers.indexOf('"elevation_ft"');
-    const colCont = headers.indexOf('"continent"');
-    const colRegion = headers.indexOf('"iso_region"');
-    const colMuni = headers.indexOf('"municipality"');
-    const colWiki = headers.indexOf('"wikipedia_link"');
-    const colHome = headers.indexOf('"home_link"');
+    // 1. Process Header Column Positions
+    // Helper to accurately split a single CSV row, tracking quotes
+    function splitCSVRow(line) {
+      const result = [];
+      let currentField = '';
+      let insideQuotes = false;
 
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+
+        if (char === '"') {
+          insideQuotes = !insideQuotes; // Toggle quote state
+        } else if (char === ',' && !insideQuotes) {
+          result.push(currentField.trim());
+          currentField = '';
+        } else {
+          currentField += char;
+        }
+      }
+      result.push(currentField.trim());
+      return result;
+    }
+
+    const headers = splitCSVRow(lines[0]);
+    const colIdent = headers.indexOf("ident");
+    const colType = headers.indexOf("type");
+    const colName = headers.indexOf("name");
+    const colElev = headers.indexOf("elevation_ft");
+    const colCont = headers.indexOf("continent");
+    const colRegion = headers.indexOf("iso_region");
+    const colMuni = headers.indexOf("municipality");
+    const colWiki = headers.indexOf("wikipedia_link");
+    const colHome = headers.indexOf("home_link");
+    const colGps = headers.indexOf("gps_code");
+    const colLocal = headers.indexOf("local_code");
+    const colIata = headers.indexOf("iata_code");
+
+    // 2. Loop Through Rows
     for (let i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
+      const line = lines[i];
+      if (!line.trim()) continue; // Skip blank entries
 
-      // Standard quote extraction split regex logic
-      const row = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-      const cleanIdent = (row[colIdent] || '').replace(/"/g, '').toUpperCase();
+      const row = splitCSVRow(line);
+      const cleanIdent = (row[colIdent] || '').toUpperCase();
 
       if (!cleanIdent) continue;
 
+      // Map clean key value attributes matching your original schema
       databaseOutput[cleanIdent] = {
         ident: cleanIdent,
-        type: (row[colType] || '').replace(/"/g, ''),
-        name: (row[colName] || '').replace(/"/g, ''),
-        elevation_ft: row[colElev] ? parseInt(row[colElev].replace(/"/g, '')) : null,
-        continent: (row[colCont] || '').replace(/"/g, '').toUpperCase(),
-        iso_region: (row[colRegion] || '').replace(/"/g, ''),
-        municipality: (row[colMuni] || '').replace(/"/g, ''),
-        wikipedia_link: (row[colWiki] || '').replace(/"/g, ''),
-        home_link: (row[colHome] || '').replace(/"/g, '')
+        type: row[colType] || 'unknown',
+        name: row[colName] || 'Unknown Airport',
+        elevation_ft: row[colElev] ? parseInt(row[colElev], 10) || null : null,
+        continent: (row[colCont] || '').toUpperCase(),
+        iso_region: row[colRegion] || '',
+        municipality: row[colMuni] || '',
+        wikipedia_link: row[colWiki] || '',
+        home_link: row[colHome] || '',
+        gps_code: row[colGps] || '',
+        local_code: row[colLocal] || '',
+        iata_code: row[colIata] || ''
       };
     }
+
     return databaseOutput;
   }
 });
