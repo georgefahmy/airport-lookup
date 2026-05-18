@@ -1,5 +1,7 @@
 /* Clean Highlight formatting */
 .sv-airport-highlight {
+  /* background-color: rgba(39, 197, 250, 0.10); */
+  /* border-bottom: 2px dashed #009688; */
   padding: 0 2px;
   border-radius: 2px;
   cursor: help;
