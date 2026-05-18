@@ -3,29 +3,39 @@ const shortCodeIndex = new Map();
 const airportRegex = /\b(K[A-Z0-9]{3}|[A-Z][0-9]{2}|[A-Z]{3})\b/g;
 
 let highlightsApplied = false;
-let globalTooltip = null; // Holds our single, root-level tooltip
+let globalTooltip = null;
 let tooltipHideTimeout = null;
 
+// Tracks the array of filtered continent strings in memory
+let allowedContinents = ['NA', 'EU', 'AS', 'SA', 'AF', 'OC', 'AN'];
+
+// Initialize the extension using native C++ JSON parsing
 async function init() {
   try {
     const jsonUrl = chrome.runtime.getURL('airports.json');
     const response = await fetch(jsonUrl);
     airportDatabase = await response.json();
-    buildShortCodeIndex();
 
-    // Create the global tooltip container once data is ready
+    // Build our reverse index mapping for verified gps_code and local_code matches
+    buildShortCodeIndex();
     createGlobalTooltip();
 
-    chrome.storage.local.get({ extensionEnabled: true }, (result) => {
+    // Load preferences from local storage simultaneously
+    chrome.storage.local.get({
+      extensionEnabled: true,
+      allowedContinents: ['NA', 'EU', 'AS', 'SA', 'AF', 'OC', 'AN']
+    }, (result) => {
+      allowedContinents = result.allowedContinents;
       if (result.extensionEnabled) {
         applyHighlights();
       }
     });
   } catch (error) {
-    console.error("Failed to initialize Airport Lookup extension:", error);
+    console.error("Failed to initialize Airport Lookup extension from JSON:", error);
   }
 }
 
+// Scans the database to map local/gps fields back to the primary key index
 function buildShortCodeIndex() {
   for (const [mainKey, airport] of Object.entries(airportDatabase)) {
     if (airport.gps_code) shortCodeIndex.set(airport.gps_code.toUpperCase(), mainKey);
@@ -34,15 +44,26 @@ function buildShortCodeIndex() {
   }
 }
 
+// Validates codes against your schema and the selected continent filters
 function getAirportData(code) {
   const upperCode = code.toUpperCase();
-  if (airportDatabase[upperCode]) return airportDatabase[upperCode];
-  const mappedMainKey = shortCodeIndex.get(upperCode);
-  if (mappedMainKey && airportDatabase[mappedMainKey]) return airportDatabase[mappedMainKey];
-  return null;
+  let airport = airportDatabase[upperCode];
+
+  // Fallback: Check our reverse index for verified identifier variants
+  if (!airport) {
+    const mappedMainKey = shortCodeIndex.get(upperCode);
+    if (mappedMainKey) airport = airportDatabase[mappedMainKey];
+  }
+
+  // Continent Filter Check: If the airport belongs to a filtered out region, hide it
+  if (airport && !allowedContinents.includes(airport.continent)) {
+    return null;
+  }
+
+  return airport;
 }
 
-// Create a single tooltip at the bottom of the body, bypassing all parent container overflows
+// Appends a single tooltip container straight to the body to avoid layout clipping
 function createGlobalTooltip() {
   if (document.getElementById('sv-global-airport-tooltip')) return;
 
@@ -51,23 +72,22 @@ function createGlobalTooltip() {
   globalTooltip.className = 'sv-airport-tooltip';
   document.body.appendChild(globalTooltip);
 
-  // Clear the hide countdown if the cursor moves inside the tooltip box
+  // Shared timer interface prevents the tooltip from flickering or vanishing instantly
   globalTooltip.addEventListener('mouseenter', () => {
     clearTimeout(tooltipHideTimeout);
   });
 
-  // Start the hide countdown if the cursor exits the tooltip box
   globalTooltip.addEventListener('mouseleave', () => {
     tooltipHideTimeout = setTimeout(() => {
       globalTooltip.classList.remove('sv-visible');
-    }, 150); // 150ms buffer zone
+    }, 150);
   });
 }
 
 function applyHighlights() {
   if (highlightsApplied) return;
   searchAndWrapAirports(document.body);
-  attachHoverListeners(); // Attach mouse events to highlights
+  attachHoverListeners();
   highlightsApplied = true;
 }
 
@@ -99,7 +119,6 @@ function searchAndWrapAirports(node) {
         const airportData = getAirportData(match);
         if (!airportData) return match;
 
-        // Clean inline wrapper layout (No nested HTML data anymore)
         return `<span class="sv-airport-highlight" data-airport-code="${match}">${match}</span>`;
       });
       node.parentNode.replaceChild(span, node);
@@ -112,12 +131,10 @@ function searchAndWrapAirports(node) {
   }
 }
 
-// Track mouse positioning dynamically
 function attachHoverListeners() {
   document.body.addEventListener('mouseenter', (e) => {
     if (!e.target.classList || !e.target.classList.contains('sv-airport-highlight')) return;
 
-    // Clear any active hide count down because we just hit a highlight element
     clearTimeout(tooltipHideTimeout);
 
     const highlightEl = e.target;
@@ -149,9 +166,8 @@ function attachHoverListeners() {
       ${wikiLink || homeLink ? `<div class="sv-link-footer">${wikiLink} ${homeLink}</div>` : ''}
     `;
 
+    // Coordinates mapping
     const rect = highlightEl.getBoundingClientRect();
-
-    // Increased offset slightly to 10px to prevent the tooltip from rendering directly under the mouse tip
     let targetTop = rect.bottom + window.scrollY + 10;
     let targetLeft = rect.left + window.scrollX + (rect.width / 2);
 
@@ -164,19 +180,28 @@ function attachHoverListeners() {
   document.body.addEventListener('mouseleave', (e) => {
     if (!e.target.classList || !e.target.classList.contains('sv-airport-highlight')) return;
 
-    // Instead of hiding immediately, trigger a coordinated countdown
     tooltipHideTimeout = setTimeout(() => {
       globalTooltip.classList.remove('sv-visible');
     }, 150);
   }, true);
 }
 
+// -------------------------------------------------------------
+// Communication hub responding to popup toggles instantly
+// -------------------------------------------------------------
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "toggleHighlights") {
     if (request.enabled) {
       applyHighlights();
     } else {
       removeHighlights();
+    }
+  }
+  else if (request.action === "updateContinents") {
+    allowedContinents = request.continents;
+    if (highlightsApplied) {
+      removeHighlights();
+      applyHighlights();
     }
   }
 });
