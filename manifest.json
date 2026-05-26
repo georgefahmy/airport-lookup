@@ -10,7 +10,6 @@
     "description": "Identifies global airport codes using OurAirports data with a toggle menu.",
     "permissions": [
         "storage",
-        "activeTab",
         "unlimitedStorage"
     ],
     "host_permissions": [
